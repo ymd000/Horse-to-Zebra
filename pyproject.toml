@@ -19,6 +19,7 @@ dependencies = [
     "diffusers",
     "accelerate",
     "safetensors",
+    "umap-learn",
 ]
 
 [dependency-groups]

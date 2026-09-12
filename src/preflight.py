@@ -223,6 +223,49 @@ def _check5(
     plt.close(fig)
 
 
+# ─── UMAP ────────────────────────────────────────────────────────────────────
+
+def _umap_plot(
+    emb_a: np.ndarray,
+    emb_ap: np.ndarray,
+    emb_b: np.ndarray,
+    out_dir: Path,
+    seed: int = 0,
+) -> None:
+    import umap
+
+    # A / A' / B 全部まとめて fit し、一貫した座標系を得る
+    na, nap, nb = len(emb_a), len(emb_ap), len(emb_b)
+    all_emb = np.concatenate([emb_a, emb_ap, emb_b])
+    reducer = umap.UMAP(n_components=2, random_state=seed)
+    xy = reducer.fit_transform(all_emb)
+    xy_a, xy_ap, xy_b = xy[:na], xy[na:na + nap], xy[na + nap:]
+
+    kw = dict(s=8, alpha=0.6)
+    fig, axes = plt.subplots(1, 2, figsize=(12, 5))
+
+    # 左: A vs B
+    axes[0].scatter(xy_a[:, 0],  xy_a[:, 1],  label="A (horse)",   color="C0", **kw)
+    axes[0].scatter(xy_b[:, 0],  xy_b[:, 1],  label="B (zebra)",   color="C2", **kw)
+    axes[0].set_title("A vs B")
+    axes[0].legend(markerscale=2, fontsize=8)
+    axes[0].set_xlabel("UMAP-1")
+    axes[0].set_ylabel("UMAP-2")
+
+    # 右: A' vs B
+    axes[1].scatter(xy_ap[:, 0], xy_ap[:, 1], label="A' (CycleGAN)", color="C1", **kw)
+    axes[1].scatter(xy_b[:, 0],  xy_b[:, 1],  label="B (zebra)",     color="C2", **kw)
+    axes[1].set_title("A' vs B")
+    axes[1].legend(markerscale=2, fontsize=8)
+    axes[1].set_xlabel("UMAP-1")
+    axes[1].set_ylabel("UMAP-2")
+
+    fig.suptitle("UMAP of train embeddings (A / A' / B jointly fitted)", fontsize=11)
+    fig.tight_layout()
+    fig.savefig(out_dir / "umap.png", dpi=150)
+    plt.close(fig)
+
+
 # ─── main ─────────────────────────────────────────────────────────────────────
 
 def main() -> None:
@@ -284,6 +327,9 @@ def main() -> None:
     else:
         print(f"確認5: スキップ (direction_alignment={direction_alignment:.3f} >= 0.9)")
         metrics["check5_grid"] = f"skipped (direction_alignment={direction_alignment:.3f} >= 0.9)"
+
+    print("UMAP ...")
+    _umap_plot(emb_a, emb_ap, emb_b, out_dir)
 
     out_path = out_dir / "preflight.json"
     with open(out_path, "w") as f:
