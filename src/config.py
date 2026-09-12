@@ -8,6 +8,18 @@ from typing import Any
 import yaml
 
 DEFAULT_CONFIG_PATH = Path(__file__).resolve().parent.parent / "config.yaml"
+LOCAL_CONFIG_PATH = Path(__file__).resolve().parent.parent / "config.local.yaml"
+
+
+def _deep_merge(base: dict, override: dict) -> dict:
+    """override の値で base を再帰的に上書きしたコピーを返す。"""
+    result = base.copy()
+    for k, v in override.items():
+        if k in result and isinstance(result[k], dict) and isinstance(v, dict):
+            result[k] = _deep_merge(result[k], v)
+        else:
+            result[k] = v
+    return result
 
 
 def _set_dotted(d: dict, dotted_key: str, value: Any) -> None:
@@ -36,6 +48,10 @@ def load_config(argv: list[str] | None = None) -> dict:
 
     with open(known.config) as f:
         cfg = yaml.safe_load(f)
+
+    if LOCAL_CONFIG_PATH.exists():
+        with open(LOCAL_CONFIG_PATH) as f:
+            cfg = _deep_merge(cfg, yaml.safe_load(f))
 
     for override in known.set:
         if "=" not in override:
