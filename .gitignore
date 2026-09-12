@@ -19,3 +19,6 @@ outputs/
 
 # ローカル設定の上書き（環境依存）
 config.local.yaml
+
+# ローカルメモ（Claude用など）
+.notes/
