@@ -1,0 +1,28 @@
+[project]
+name = "sae"
+version = "0.1.0"
+description = "horse2zebra を題材にしたマスクSAE実験"
+requires-python = ">=3.11"
+dependencies = [
+    "torch",
+    "torchvision",
+    "numpy",
+    "pandas",
+    "scikit-learn",
+    "pyyaml",
+    "tqdm",
+    "matplotlib",
+    "pillow",
+    "open-clip-torch",
+    "timm",
+    "transformers",
+    "diffusers",
+    "accelerate",
+    "safetensors",
+]
+
+[dependency-groups]
+dev = [
+    "jupyterlab",
+    "ipykernel",
+]

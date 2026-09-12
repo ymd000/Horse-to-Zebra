@@ -1,0 +1,44 @@
+# horse2zebra マスクSAE実験の基本設定
+# 環境依存のパス（cache_dir, output_dir）は環境ごとに書き換えること
+# ハイパラは train.py --n_site_latent 4 のように CLI で上書き可能
+
+paths:
+  # 生画像・CycleGAN重みなど
+  data_dir: ./data
+  # 埋め込みnpy（外付けドライブを想定）
+  cache_dir: /media/ymd/extdrive/sae/cache
+  # SAE学習済み重み・メトリクス（外付けドライブを想定）
+  output_dir: /media/ymd/extdrive/sae/outputs
+  # A-A' ペアマニフェスト
+  pairs_csv: ./data/pairs.csv
+
+encoder:
+  # vit_b16 | openclip_vit_h14
+  name: vit_b16
+  device: cuda
+
+sae:
+  # 入力次元は encoder に依存（ViT-B/16: 768, OpenCLIP-ViT-H/14: 1280）
+  n_site_latent: 4         # z_S の次元数（|S|）
+  expansion: 4             # (n_site_latent + n_shared_latent) / d_in の目安
+  activation: relu         # relu | topk
+  topk: null               # activation=topk のとき有効
+
+train:
+  batch_size: 128
+  lr: 1.0e-3
+  epochs: 100
+  lam_l1: 1.0e-3
+  lam_pair: 1.0
+  seed: 0
+  # A' 側で z_S を強制的に 0 にする（ハードマスク）
+  hard_mask: true
+
+data:
+  # 左右反転で2倍
+  flip_augment: true
+  image_size: 256
+
+step0:
+  # AUROC計算に使うカーネル
+  auroc_kernels: [linear, rbf]

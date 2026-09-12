@@ -1,0 +1,21 @@
+# Python / uv
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+.venv/
+.env
+
+
+# 生成物・大きなデータ
+data/horse2zebra/
+data/cyclegan_weights/
+data/*.jpg
+data/*.png
+data/pairs.csv
+
+# 外付けドライブに置く想定だが、念のため
+cache/
+outputs/
+
+# ローカル設定の上書き（環境依存）
+config.local.yaml

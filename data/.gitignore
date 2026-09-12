@@ -1,0 +1,6 @@
+horse2zebra/
+cyclegan_weights/
+*.jpg
+*.jpeg
+*.png
+pairs.csv
