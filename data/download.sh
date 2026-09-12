@@ -3,8 +3,9 @@
 # 使い方: bash data/download.sh
 set -euo pipefail
 
-DATA_DIR="$(cd "$(dirname "$0")" && pwd)"
-cd "$DATA_DIR"
+SCRIPT_DIR="$(dirname -- "${BASH_SOURCE[0]}")"
+cd -- "$SCRIPT_DIR"
+DATA_DIR="$PWD"
 
 # --- horse2zebra ---
 # junyanz/pytorch-CycleGAN-and-pix2pix の公式配布
