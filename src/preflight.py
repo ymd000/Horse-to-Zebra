@@ -18,6 +18,10 @@ from pathlib import Path
 
 import matplotlib
 matplotlib.use("Agg")
+matplotlib.rcParams["font.family"] = "sans-serif"
+matplotlib.rcParams["font.sans-serif"] = [
+    "DejaVu Sans", "Liberation Sans", "FreeSans", "Arial", "sans-serif"
+]
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -50,9 +54,9 @@ def _check1(
     fig, ax = plt.subplots(figsize=(6, 4))
     ax.hist(per_cos, bins=40, edgecolor="white", linewidth=0.5)
     ax.axvline(per_cos.mean(), color="r", linestyle="--", label=f"mean={per_cos.mean():.3f}")
-    ax.set_xlabel("cos(Δᵢ, mean_delta)")
+    ax.set_xlabel("cos(delta_i, mean_delta)")
     ax.set_ylabel("count")
-    ax.set_title("確認1: per-sample cosine similarity to mean_delta")
+    ax.set_title("Check1: per-sample cosine similarity to mean_delta")
     ax.legend()
     fig.tight_layout()
     fig.savefig(out_dir / "check1_hist.png", dpi=150)
@@ -211,9 +215,9 @@ def _check5(
             axes[row, col].axis("off")
             axes[row, col].set_title(f"{norms[idx]:.2f}", fontsize=7)
 
-    fig.text(0.01, 0.75, "Δ 大", va="center", fontsize=9, color="C1")
-    fig.text(0.01, 0.25, "Δ 小", va="center", fontsize=9, color="C0")
-    fig.suptitle("確認5: Δのノルムと画像内容 (上: Δ大 / 下: Δ小)", fontsize=11)
+    fig.text(0.01, 0.75, "large ||delta||", va="center", fontsize=9, color="C1")
+    fig.text(0.01, 0.25, "small ||delta||", va="center", fontsize=9, color="C0")
+    fig.suptitle("Check5: image content vs ||delta|| (top: large / bottom: small)", fontsize=11)
     fig.tight_layout(rect=[0.02, 0, 1, 1])
     fig.savefig(out_dir / "check5_grid.png", dpi=120)
     plt.close(fig)
