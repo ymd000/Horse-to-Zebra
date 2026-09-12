@@ -35,8 +35,6 @@ train:
   hard_mask: true
 
 data:
-  # 左右反転で2倍
-  flip_augment: true
   image_size: 256
 
 step0:

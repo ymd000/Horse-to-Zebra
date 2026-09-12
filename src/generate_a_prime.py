@@ -142,12 +142,10 @@ def main() -> None:
             out = net(x).squeeze(0)
             _tensor_to_image(out).save(dst_dir / a_path.name, quality=95)
 
-    rows = []
-    for a_path in sorted(src_dir.glob("*.jpg")):
-        ap_path = dst_dir / a_path.name
-        rows.append({"a": a_path.name, "a_prime": ap_path.name, "flip": False})
-        if cfg["data"]["flip_augment"]:
-            rows.append({"a": a_path.name, "a_prime": ap_path.name, "flip": True})
+    rows = [
+        {"a": p.name, "a_prime": p.name}
+        for p in sorted(src_dir.glob("*.jpg"))
+    ]
 
     pairs_csv = Path(cfg["paths"]["pairs_csv"])
     pairs_csv.parent.mkdir(parents=True, exist_ok=True)
