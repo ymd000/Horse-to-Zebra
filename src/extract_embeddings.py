@@ -1,12 +1,13 @@
 """ViT-B/16 または OpenCLIP-ViT-H/14 で埋め込みを抽出して cache_dir に保存。
 
 出力:
-    <cache_dir>/<encoder>/emb_a.npy       (train A, pairs.csv に従い順序を固定)
-    <cache_dir>/<encoder>/emb_a_prime.npy (train A', 同順)
-    <cache_dir>/<encoder>/emb_b.npy       (train B)
-    <cache_dir>/<encoder>/emb_a_test.npy
-    <cache_dir>/<encoder>/emb_b_test.npy
-    <cache_dir>/<encoder>/manifest.csv    (split / idx / filename)
+    <cache_dir>/<encoder>/emb_a.npy             (train A, pairs.csv train 行順)
+    <cache_dir>/<encoder>/emb_a_prime.npy       (train A', 同順)
+    <cache_dir>/<encoder>/emb_b.npy             (train B)
+    <cache_dir>/<encoder>/emb_a_test.npy        (test A, pairs.csv test 行順)
+    <cache_dir>/<encoder>/emb_a_prime_test.npy  (test A', 同順)
+    <cache_dir>/<encoder>/emb_b_test.npy        (test B)
+    <cache_dir>/<encoder>/manifest.csv          (split / idx / filename)
 """
 from __future__ import annotations
 
@@ -83,47 +84,51 @@ def main() -> None:
     model, transform = _build_encoder(encoder_name, device)
     print(f"エンコーダ: {encoder_name}, デバイス: {device}")
 
-    # --- A と A' (pairs.csv の行順を厳守) ---
     pairs = pd.read_csv(cfg["paths"]["pairs_csv"])
-    trainA_dir = data_dir / "horse2zebra" / "trainA"
-    trainAp_dir = data_dir / "horse2zebra" / "trainA_prime"
-    paths_a = [trainA_dir / name for name in pairs["a"]]
-    paths_ap = [trainAp_dir / name for name in pairs["a_prime"]]
+    h2z = data_dir / "horse2zebra"
 
-    emb_a = _extract(paths_a, model, transform, device, batch_size, "emb_a")
+    def _pairs_paths(split: str, a_dir: Path, ap_dir: Path) -> tuple[list[Path], list[Path]]:
+        df = pairs[pairs["split"] == split]
+        return [a_dir / n for n in df["a"]], [ap_dir / n for n in df["a_prime"]]
+
+    # --- train A / A' (pairs.csv train 行順) ---
+    paths_a, paths_ap = _pairs_paths("train", h2z / "trainA", h2z / "trainA_prime")
+    emb_a  = _extract(paths_a,  model, transform, device, batch_size, "emb_a")
     emb_ap = _extract(paths_ap, model, transform, device, batch_size, "emb_a_prime")
-    np.save(cache_dir / "emb_a.npy", emb_a)
+    np.save(cache_dir / "emb_a.npy",       emb_a)
     np.save(cache_dir / "emb_a_prime.npy", emb_ap)
 
-    # --- B (train) ---
-    paths_b = sorted((data_dir / "horse2zebra" / "trainB").glob("*.jpg"))
+    # --- train B ---
+    paths_b = sorted((h2z / "trainB").glob("*.jpg"))
     emb_b = _extract(paths_b, model, transform, device, batch_size, "emb_b")
     np.save(cache_dir / "emb_b.npy", emb_b)
 
-    # --- A test ---
-    paths_a_test = sorted((data_dir / "horse2zebra" / "testA").glob("*.jpg"))
-    emb_a_test = _extract(paths_a_test, model, transform, device, batch_size, "emb_a_test")
-    np.save(cache_dir / "emb_a_test.npy", emb_a_test)
+    # --- test A / A' (pairs.csv test 行順) ---
+    paths_a_test, paths_ap_test = _pairs_paths("test", h2z / "testA", h2z / "testA_prime")
+    emb_a_test  = _extract(paths_a_test,  model, transform, device, batch_size, "emb_a_test")
+    emb_ap_test = _extract(paths_ap_test, model, transform, device, batch_size, "emb_a_prime_test")
+    np.save(cache_dir / "emb_a_test.npy",        emb_a_test)
+    np.save(cache_dir / "emb_a_prime_test.npy",  emb_ap_test)
 
-    # --- B test ---
-    paths_b_test = sorted((data_dir / "horse2zebra" / "testB").glob("*.jpg"))
+    # --- test B ---
+    paths_b_test = sorted((h2z / "testB").glob("*.jpg"))
     emb_b_test = _extract(paths_b_test, model, transform, device, batch_size, "emb_b_test")
     np.save(cache_dir / "emb_b_test.npy", emb_b_test)
 
     # --- manifest.csv ---
     rows = []
-    for split, paths in [
-        ("a", paths_a), ("a_prime", paths_ap),
-        ("b", paths_b), ("a_test", paths_a_test), ("b_test", paths_b_test),
+    for tag, paths in [
+        ("a", paths_a), ("a_prime", paths_ap), ("b", paths_b),
+        ("a_test", paths_a_test), ("a_prime_test", paths_ap_test), ("b_test", paths_b_test),
     ]:
         for i, p in enumerate(paths):
-            rows.append({"split": split, "idx": i, "filename": p.name})
+            rows.append({"split": tag, "idx": i, "filename": p.name})
     pd.DataFrame(rows).to_csv(cache_dir / "manifest.csv", index=False)
 
     print(f"saved -> {cache_dir}")
     for name, arr in [
         ("emb_a", emb_a), ("emb_a_prime", emb_ap), ("emb_b", emb_b),
-        ("emb_a_test", emb_a_test), ("emb_b_test", emb_b_test),
+        ("emb_a_test", emb_a_test), ("emb_a_prime_test", emb_ap_test), ("emb_b_test", emb_b_test),
     ]:
         print(f"  {name}: {arr.shape}")
 

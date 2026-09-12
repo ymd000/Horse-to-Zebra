@@ -120,12 +120,24 @@ def _tensor_to_image(t: torch.Tensor) -> Image.Image:
     return Image.fromarray(arr)
 
 
+def _generate(net: _ResnetGenerator, src_dir: Path, dst_dir: Path, device: torch.device, desc: str) -> list[str]:
+    """src_dir の画像を推論して dst_dir に保存し、ファイル名リストを返す。"""
+    dst_dir.mkdir(parents=True, exist_ok=True)
+    names: list[str] = []
+    with torch.no_grad():
+        for a_path in tqdm(sorted(src_dir.glob("*.jpg")), desc=desc):
+            img = Image.open(a_path).convert("RGB")
+            x = _TRANSFORM(img).unsqueeze(0).to(device)
+            out = net(x).squeeze(0)
+            _tensor_to_image(out).save(dst_dir / a_path.name, quality=95)
+            names.append(a_path.name)
+    return names
+
+
 def main() -> None:
     cfg = load_config()
     data_dir = Path(cfg["paths"]["data_dir"])
-    src_dir = data_dir / "horse2zebra" / "trainA"
-    dst_dir = data_dir / "horse2zebra" / "trainA_prime"
-    dst_dir.mkdir(parents=True, exist_ok=True)
+    h2z = data_dir / "horse2zebra"
 
     weights_path = data_dir / "cyclegan_weights" / "horse2zebra.pth"
     device = torch.device(cfg["encoder"]["device"] if torch.cuda.is_available() else "cpu")
@@ -134,19 +146,13 @@ def main() -> None:
     net = _load_generator(weights_path, device)
     print(f"CycleGAN ジェネレータをロード: {weights_path}")
 
-    img_paths = sorted(src_dir.glob("*.jpg"))
-    with torch.no_grad():
-        for a_path in tqdm(img_paths, desc="generating A'"):
-            img = Image.open(a_path).convert("RGB")
-            x = _TRANSFORM(img).unsqueeze(0).to(device)
-            out = net(x).squeeze(0)
-            _tensor_to_image(out).save(dst_dir / a_path.name, quality=95)
+    train_names = _generate(net, h2z / "trainA", h2z / "trainA_prime", device, "train A'")
+    test_names  = _generate(net, h2z / "testA",  h2z / "testA_prime",  device, "test A'")
 
-    rows = [
-        {"a": p.name, "a_prime": p.name}
-        for p in sorted(src_dir.glob("*.jpg"))
-    ]
-
+    rows = (
+        [{"split": "train", "a": n, "a_prime": n} for n in train_names]
+        + [{"split": "test",  "a": n, "a_prime": n} for n in test_names]
+    )
     pairs_csv = Path(cfg["paths"]["pairs_csv"])
     pairs_csv.parent.mkdir(parents=True, exist_ok=True)
     pd.DataFrame(rows).to_csv(pairs_csv, index=False)
