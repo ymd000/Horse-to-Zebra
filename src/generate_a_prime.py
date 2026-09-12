@@ -20,14 +20,18 @@ from tqdm import tqdm
 from config import load_config
 
 
+# 公式の学習済み重みは InstanceNorm2d(track_running_stats=True) で保存されている
+_NORM = functools.partial(nn.InstanceNorm2d, track_running_stats=True)
+
+
 class _ResnetBlock(nn.Module):
-    def __init__(self, dim: int, norm_layer: type, use_dropout: bool) -> None:
+    def __init__(self, dim: int, use_dropout: bool) -> None:
         super().__init__()
-        use_bias = norm_layer == nn.InstanceNorm2d
+        use_bias = True
         layers: list[nn.Module] = [
             nn.ReflectionPad2d(1),
             nn.Conv2d(dim, dim, 3, bias=use_bias),
-            norm_layer(dim),
+            _NORM(dim),
             nn.ReLU(True),
         ]
         if use_dropout:
@@ -35,7 +39,7 @@ class _ResnetBlock(nn.Module):
         layers += [
             nn.ReflectionPad2d(1),
             nn.Conv2d(dim, dim, 3, bias=use_bias),
-            norm_layer(dim),
+            _NORM(dim),
         ]
         self.conv_block = nn.Sequential(*layers)
 
@@ -54,34 +58,31 @@ class _ResnetGenerator(nn.Module):
         n_blocks: int = 9,
     ) -> None:
         super().__init__()
-        norm_layer = nn.InstanceNorm2d
-        use_bias = True  # InstanceNorm では bias を使う
-
         model: list[nn.Module] = [
             nn.ReflectionPad2d(3),
-            nn.Conv2d(input_nc, ngf, 7, bias=use_bias),
-            norm_layer(ngf),
+            nn.Conv2d(input_nc, ngf, 7, bias=True),
+            _NORM(ngf),
             nn.ReLU(True),
         ]
         n_down = 2
         for i in range(n_down):
             mult = 2**i
             model += [
-                nn.Conv2d(ngf * mult, ngf * mult * 2, 3, stride=2, padding=1, bias=use_bias),
-                norm_layer(ngf * mult * 2),
+                nn.Conv2d(ngf * mult, ngf * mult * 2, 3, stride=2, padding=1, bias=True),
+                _NORM(ngf * mult * 2),
                 nn.ReLU(True),
             ]
         mult = 2**n_down
         for _ in range(n_blocks):
-            model.append(_ResnetBlock(ngf * mult, norm_layer, use_dropout=False))
+            model.append(_ResnetBlock(ngf * mult, use_dropout=False))
         for i in range(n_down):
             mult = 2 ** (n_down - i)
             model += [
                 nn.ConvTranspose2d(
                     ngf * mult, ngf * mult // 2, 3,
-                    stride=2, padding=1, output_padding=1, bias=use_bias,
+                    stride=2, padding=1, output_padding=1, bias=True,
                 ),
-                norm_layer(ngf * mult // 2),
+                _NORM(ngf * mult // 2),
                 nn.ReLU(True),
             ]
         model += [
