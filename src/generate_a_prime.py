@@ -1,8 +1,13 @@
 """CycleGAN(馬→シマウマ)で A から A' を生成し、pairs.csv を書き出す。
 
+A' は PNG (無損失, uint8) で保存する。JPEG 再圧縮による高周波アーティファクトが
+B との比較にバイアスを持ち込むのを避けるため。B と同じ uint8 sRGB になるので
+encoder への入力段階では非対称性はない。
+
 出力:
-    data/horse2zebra/trainA_prime/*.jpg
-    data/pairs.csv  (columns: a, a_prime, flip)
+    data/horse2zebra/trainA_prime/*.png
+    data/horse2zebra/testA_prime/*.png
+    data/pairs.csv  (columns: split, a, a_prime)  a は .jpg、a_prime は .png
 """
 from __future__ import annotations
 
@@ -105,9 +110,11 @@ def _load_generator(weights_path: Path, device: torch.device) -> _ResnetGenerato
     return net
 
 
+# horse2zebra は元から 256x256。encoder への入力段階で A' が B に対して
+# 余分な Resize を経由しないよう、ここでは Resize/CenterCrop を掛けない
+# (掛けなくても 256x256 のままなので実質等価だが、非 256 入力を静かに
+# 通してしまうリスクを排除する)。
 _TRANSFORM = transforms.Compose([
-    transforms.Resize(256, transforms.InterpolationMode.BICUBIC),
-    transforms.CenterCrop(256),
     transforms.ToTensor(),
     transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
 ])
@@ -120,18 +127,23 @@ def _tensor_to_image(t: torch.Tensor) -> Image.Image:
     return Image.fromarray(arr)
 
 
-def _generate(net: _ResnetGenerator, src_dir: Path, dst_dir: Path, device: torch.device, desc: str) -> list[str]:
-    """src_dir の画像を推論して dst_dir に保存し、ファイル名リストを返す。"""
+def _generate(
+    net: _ResnetGenerator, src_dir: Path, dst_dir: Path, device: torch.device, desc: str
+) -> list[tuple[str, str]]:
+    """src_dir の .jpg を推論し dst_dir に PNG で保存、(a名.jpg, a'名.png) の列を返す。"""
     dst_dir.mkdir(parents=True, exist_ok=True)
-    names: list[str] = []
+    pairs: list[tuple[str, str]] = []
     with torch.no_grad():
         for a_path in tqdm(sorted(src_dir.glob("*.jpg")), desc=desc):
             img = Image.open(a_path).convert("RGB")
+            if img.size != (256, 256):
+                raise ValueError(f"{a_path}: 期待サイズ (256, 256) と異なる: {img.size}")
             x = _TRANSFORM(img).unsqueeze(0).to(device)
             out = net(x).squeeze(0)
-            _tensor_to_image(out).save(dst_dir / a_path.name, quality=95)
-            names.append(a_path.name)
-    return names
+            out_name = a_path.stem + ".png"
+            _tensor_to_image(out).save(dst_dir / out_name, format="PNG")
+            pairs.append((a_path.name, out_name))
+    return pairs
 
 
 def main() -> None:
@@ -146,12 +158,12 @@ def main() -> None:
     net = _load_generator(weights_path, device)
     print(f"CycleGAN ジェネレータをロード: {weights_path}")
 
-    train_names = _generate(net, h2z / "trainA", h2z / "trainA_prime", device, "train A'")
-    test_names  = _generate(net, h2z / "testA",  h2z / "testA_prime",  device, "test A'")
+    train_pairs = _generate(net, h2z / "trainA", h2z / "trainA_prime", device, "train A'")
+    test_pairs  = _generate(net, h2z / "testA",  h2z / "testA_prime",  device, "test A'")
 
     rows = (
-        [{"split": "train", "a": n, "a_prime": n} for n in train_names]
-        + [{"split": "test",  "a": n, "a_prime": n} for n in test_names]
+        [{"split": "train", "a": a, "a_prime": ap} for a, ap in train_pairs]
+        + [{"split": "test",  "a": a, "a_prime": ap} for a, ap in test_pairs]
     )
     pairs_csv = Path(cfg["paths"]["pairs_csv"])
     pairs_csv.parent.mkdir(parents=True, exist_ok=True)

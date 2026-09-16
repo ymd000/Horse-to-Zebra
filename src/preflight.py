@@ -166,10 +166,15 @@ def _zebra_rates(paths: list[Path], device: str, batch_size: int = 64) -> dict:
     }
 
 
-def _check3(h2z: Path, filenames_a_te: list[str], device: str) -> dict:
-    paths_ap_te = [h2z / "testA_prime" / n for n in filenames_a_te]
-    paths_b_te  = sorted((h2z / "testB").glob("*.jpg"))
-    paths_a_te  = [h2z / "testA" / n for n in filenames_a_te]
+def _check3(
+    h2z: Path,
+    filenames_a_te: list[str],
+    filenames_ap_te: list[str],
+    device: str,
+) -> dict:
+    paths_a_te  = [h2z / "testA"       / n for n in filenames_a_te]
+    paths_ap_te = [h2z / "testA_prime" / n for n in filenames_ap_te]
+    paths_b_te  = sorted((h2z / "testB_png").glob("*.png"))
     return {
         "A_test":       _zebra_rates(paths_a_te,  device),
         "A_prime_test": _zebra_rates(paths_ap_te, device),
@@ -289,11 +294,16 @@ def main() -> None:
     pairs    = pd.read_csv(cfg["paths"]["pairs_csv"])
     pairs_tr = pairs[pairs["split"] == "train"]
     pairs_te = pairs[pairs["split"] == "test"]
-    filenames_a_tr = list(pairs_tr["a"])
-    filenames_a_te = list(pairs_te["a"])
+    filenames_a_tr  = list(pairs_tr["a"])
+    filenames_ap_tr = list(pairs_tr["a_prime"])
+    filenames_a_te  = list(pairs_te["a"])
+    filenames_ap_te = list(pairs_te["a_prime"])
 
     assert len(emb_a) == len(emb_ap) == len(filenames_a_tr), "train ペアの行数不一致"
-    assert filenames_a_tr == list(pairs_tr["a_prime"]), "a と a_prime のファイル名が不一致"
+    # 拡張子は違う (.jpg vs .png) が stem は一致するはず
+    assert [Path(n).stem for n in filenames_a_tr] == [Path(n).stem for n in filenames_ap_tr], (
+        "a と a_prime のペア対応が崩れている"
+    )
 
     delta      = emb_ap - emb_a
     mean_delta = delta.mean(axis=0)
@@ -311,7 +321,9 @@ def main() -> None:
 
     if encoder_name == "vit_b16":
         print("確認3: シマウマ判定率 ...")
-        metrics["check3_zebra"] = _check3(data_dir / "horse2zebra", filenames_a_te, device)
+        metrics["check3_zebra"] = _check3(
+            data_dir / "horse2zebra", filenames_a_te, filenames_ap_te, device
+        )
     else:
         print("確認3: スキップ (encoder != vit_b16)")
         metrics["check3_zebra"] = "skipped (encoder != vit_b16)"

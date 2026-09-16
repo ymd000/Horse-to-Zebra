@@ -98,8 +98,8 @@ def main() -> None:
     np.save(cache_dir / "emb_a.npy",       emb_a)
     np.save(cache_dir / "emb_a_prime.npy", emb_ap)
 
-    # --- train B ---
-    paths_b = sorted((h2z / "trainB").glob("*.jpg"))
+    # --- train B (prepare_b_png.py で作成した PNG を使用: A' との経路対称化) ---
+    paths_b = sorted((h2z / "trainB_png").glob("*.png"))
     emb_b = _extract(paths_b, model, transform, device, batch_size, "emb_b")
     np.save(cache_dir / "emb_b.npy", emb_b)
 
@@ -110,8 +110,8 @@ def main() -> None:
     np.save(cache_dir / "emb_a_test.npy",        emb_a_test)
     np.save(cache_dir / "emb_a_prime_test.npy",  emb_ap_test)
 
-    # --- test B ---
-    paths_b_test = sorted((h2z / "testB").glob("*.jpg"))
+    # --- test B (PNG) ---
+    paths_b_test = sorted((h2z / "testB_png").glob("*.png"))
     emb_b_test = _extract(paths_b_test, model, transform, device, batch_size, "emb_b_test")
     np.save(cache_dir / "emb_b_test.npy", emb_b_test)
 
